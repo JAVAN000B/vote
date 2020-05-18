@@ -1,6 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, session
+from urllib.parse import urlparse, urljoin
 from project import app, db
-from project.database import game_info, user_info, voted_info, log
+from project.database import game_info, user_info, voted_info, log, question_info
 from wtforms import Form, StringField, validators
 from project.form import RegistrationForm, LoginForm
 from functools import wraps
@@ -9,13 +10,25 @@ from datetime import datetime
 
 @app.route('/')
 def index():
-    data = game_info.query.all()
+    data = question_info.query.all()
     data1 = log.query.all()
     if len(data1) != 0:
         time = data1[-1].time
     else:
         time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     return render_template('index.html', title=data, time=time)
+
+
+@app.route('/vote/<int:questionid>')
+def vote(questionid):
+    data0 = questionid
+    data = game_info.query.filter_by(game_belong=questionid)
+    data1 = log.query.all()
+    if len(data1) != 0:
+        time = data1[-1].time
+    else:
+        time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return render_template('vote.html', title=data, time=time, questionid=data0)
 
 
 @app.route('/log-in', methods=['GET', 'POST'])
@@ -27,15 +40,17 @@ def log_in():
         Admin = request.form.get('admin_log_in')
 
         if usraccount == "admin" and password == "admin123":
-            if(Admin == 'admin'):
+            if (Admin == 'admin'):
                 session['log_in'] = True
                 session['admin_log_in'] = True
                 session['user'] = "admin"
 
-                new_log = log(user_account=usraccount, game_name="log in", time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                new_log = log(user_account=usraccount, game_name="log in",
+                              time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 db.session.add(new_log)
                 db.session.commit()
-                return redirect(url_for('admin'))
+                flash(f'log in as admin', 'success')
+                return redirect(url_for('index'))
 
             flash('dont forget that checkbox', 'danger')
             return render_template('log_in.html', form=form)
@@ -56,7 +71,8 @@ def log_in():
                 session['log_in'] = True
                 session['user'] = usraccount
 
-                new_log = log(user_account=usraccount, game_name="log in", time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                new_log = log(user_account=usraccount, game_name="log in",
+                              time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 db.session.add(new_log)
                 db.session.commit()
                 return redirect(url_for('index'))
@@ -80,6 +96,7 @@ def is_logged_in(f):
         else:
             flash('Please log in first', 'danger')
             return redirect(url_for('log_in'))
+
     return wrap
 
 
@@ -91,12 +108,12 @@ def admin_logged_in(f):
         else:
             flash('Please log in as administrator first', 'danger')
             return redirect(url_for('log_in'))
+
     return wrap
 
 
 @app.route('/log-out')
 def logout():
-
     # delete = voted_info.query.all()
     # if len(delete) != 0:
     db.session.query(voted_info).delete()
@@ -138,8 +155,6 @@ def sign_up():
             # mysql.connection.commit()
             # cur.close()
             flash(f'account for {form.username.data} are created', 'success')
-            if 'admin_log_in' in session:
-                return redirect(url_for('admin'))
             return redirect(url_for('log_in'))
 
     return render_template("sign-up.html", form=form)
@@ -155,26 +170,51 @@ class NewVoteForm(Form):
 def create():
     form = NewVoteForm(request.form)
     if request.method == 'POST' and form.validate():
+        question_name = form.title.data
+        description = form.description.data
+
+        question_name_list = question_info.query.filter_by(question_name=question_name)
+        check = db.session.query(question_name_list.exists()).scalar()
+        # mysql.connection.commit()
+        if check is True:
+            flash(f'this vote exits', 'danger')
+            return redirect(url_for('create'))
+
+        new_question = question_info(question_name=question_name, question_description=description,
+                                     CreateUser=session['user'])
+        db.session.add(new_question)
+        db.session.commit()
+
+        flash(f'topic {form.title.data} were created', 'success')
+        return redirect_back(request.url)
+    return render_template('New-vote.html', form=form)
+
+
+@app.route('/New_selection/<int:questionid>', methods=['GET', 'POST', 'DELETE'])
+@is_logged_in
+def createselection(questionid):
+    form = NewVoteForm(request.form)
+    if request.method == 'POST' and form.validate():
         game_name = form.title.data
         description = form.description.data
-        init_votes = 0
+        belong = questionid
+        init_votes = 1
 
         game_name_list = game_info.query.filter_by(game_name=game_name)
         check = db.session.query(game_name_list.exists()).scalar()
         # mysql.connection.commit()
         if check is True:
-            flash(f'game exits', 'danger')
+            flash(f'this selection exits', 'danger')
             return redirect(url_for('create'))
 
-        new_game = game_info(game_name=game_name, game_description=description, user=session['user'], Tickets=init_votes)
+        new_game = game_info(game_name=game_name, game_description=description,
+                             user=session['user'], game_belong=belong, Tickets=init_votes)
         db.session.add(new_game)
         db.session.commit()
 
         flash(f'topic {form.title.data} were created', 'success')
-        if 'admin_log_in' in session:
-            return redirect(url_for('admin'))
-        return redirect(url_for('index'))
-    return render_template('New-vote.html', form=form)
+        return redirect_back(request.url)
+    return render_template('New_selection.html', form=form, questionid=questionid)
 
 
 @app.route('/addVote', methods=['POST'])
@@ -191,7 +231,7 @@ def addVote():
 
     voted_game = voted_info(game_name=game_name)
 
-    log_info = log(user_account=session['user'],game_name=game_name,time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    log_info = log(user_account=session['user'], game_name=game_name, time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     db.session.add(voted_game)
     db.session.add(log_info)
     db.session.commit()
@@ -204,82 +244,48 @@ def intro():
     return render_template('introduction.html')
 
 
-@app.route('/edit_topics', methods=['POST'])
-def edit_topics():
-    title = request.form['title']
-    game_name = request.form['game_name']
-    game_description = request.form['game_description']
-    tickets = request.form['tickets']
-
-    update = game_info.query.filter_by(game_name=title).first()
-    update.game_name = game_name
-    update.game_description = game_description
-    update.Tickets = tickets
-    db.session.commit()
-
-    return 'success'
-
-
-@app.route('/delete_topics/<string:name>', methods=['POST'])
-@is_logged_in
-def delete_topics(name):
-
-    delete = game_info.query.filter_by(game_name=name).first()
-    db.session.delete(delete)
-    db.session.commit()
-    return redirect(url_for('admin'))
+# @app.route('/edit_topics', methods=['POST'])
+# def edit_topics():
+#     title = request.form['title']
+#     game_name = request.form['game_name']
+#     game_description = request.form['game_description']
+#     tickets = request.form['tickets']
+#
+#     update = game_info.query.filter_by(game_name=title).first()
+#     update.game_name = game_name
+#     update.game_description = game_description
+#     update.Tickets = tickets
+#     db.session.commit()
+#
+#     return 'success'
 
 
-@app.route('/delete_users/<string:usraccount>', methods=['POST'])
-@is_logged_in
-def delete_users(usraccount):
-
-    delete = user_info.query.filter_by(user_account=usraccount).first()
-    db.session.delete(delete)
-    db.session.commit()
-    return redirect(url_for('admin'))
-
-
-@app.route('/delete_logs/<string:log_array>', methods=['POST'])
-@is_logged_in
-def delete_logs(log_array):
-    log_list = log_array.split(",")
-    delete = log.query.filter_by(game_name=log_list[1], user_account=log_list[0], time=log_list[2]).first()
-    db.session.delete(delete)
-
-    if log_list[1] != "log in":
-        update = game_info.query.filter_by(game_name=log_list[1]).first()
-        # check = db.session.query(update.exists()).scalar()
-        if update is not None and update.Tickets>0:
-            update.Tickets -= 1
-        db.session.commit()
-
-    db.session.commit()
-    return redirect(url_for('admin'))
+# @app.route('/delete_users/<string:usraccount>', methods=['POST'])
+# @is_logged_in
+# def delete_users(usraccount):
+#     delete = user_info.query.filter_by(user_account=usraccount).first()
+#     db.session.delete(delete)
+#     db.session.commit()
+#     return redirect(url_for('log_history'))
 
 
-@app.route('/admin')
-@admin_logged_in
-def admin():
+# 函数功能，传入当前url 跳转回当前url的前一个url
 
-    data = game_info.query.all()
-    data1 = user_info.query.all()
-    data2 = log.query.all()
+def redirect_back(backurl, **kwargs):
+    for target in request.args.get('next'), request.referrer:
 
-    if len(data) > 0 and len(data1) >0 and len(data2) > 0:
-        return render_template('admin.html', topics=data, account=data1, loog=data2)
-    elif len(data) > 0 and len(data1) <= 0 and len(data2) <=0:
-        return render_template('admin.html', topics=data)
-    elif len(data) <= 0 and len(data2)<=0 and len(data1) > 0:
-        return render_template('admin.html', account=data1)
-    elif len(data) <= 0 and len(data1) <= 0 and len(data2) >0:
-        return render_template('admin.html', loog=data2)
-    elif len(data) > 0 and len(data1) > 0 and len(data2) <= 0:
-        return render_template('admin.html', topics=data, account=data1)
-    elif len(data) > 0 and len(data1) <= 0 and len(data2) > 0:
-        return render_template('admin.html', topics=data, loog=data2)
-    elif len(data) <= 0 and len(data1) > 0 and len(data2) > 0:
-        return render_template('admin.html', account=data1, loog=data2)
-    else:
-        return render_template('admin.html')
+        if not target:
+            continue
 
+        if is_safe_url(target):
+            return redirect(target)
+
+    return redirect(url_for(backurl, **kwargs))
+
+
+def is_safe_url(target):
+    ref_url = urlparse(request.host_url)
+
+    test_url = urlparse(urljoin(request.host_url, target))
+
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc

@@ -1,55 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>sign-up</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <link rel="stylesheet" href="/static/style/sign-up.css">
-    <link rel="stylesheet" href="/static/style/index.css">
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-</head>
-<body>
-<div class="container-fluid">
-    <div class="  col-xs-12  ">
+{% extends "basePage.html" %}
 
-        <nav class="navbar navbar-expand-md navbar-light bg-light sticky-top id=all_container padding">
-            <div class="container-fluid" >
-                <a class="navbar-brand" href="/">Game Voting</a>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarResponsive">
-                    <ul class="navbar-nav ml-auto">
+{% block links %}
+    <link rel="stylesheet" href="/static/style/log-in.css">
+{% endblock %}
 
-                        <li class="nav-item">
-                            <a class="nav-link" href="/intro">Introduction</a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/" class="nav-link">Back</a>
-                        </li>
-                        {% if session.admin_log_in %}
-                          <li class="nav-item">
-                              <a href="/admin" class="nav-link">Admin</a>
-                          </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
-        </nav>
+{% block normal_nav %}
+<li class="nav-item">
+    <a href="/" class="nav-link">Back</a>
+</li>
+{% endblock %}
 
-        <div class="main-part">
-               {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                      {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
-                          {{ message }}
-                        </div>
-                      {% endfor %}
-                    {% endif %}
-                {% endwith %}
-            <!--sign up part -->
-            <div id="log-in" class="col-xs-12 ">
+{% block content %}
+<div id="log-in" class="col-xs-12 ">
                 <form method="POST">
                     <div class="border p-4">
                         <div class="md-form form-group w-50" style="margin-left: 25%">
@@ -101,8 +63,5 @@
                 <br>
                 <a href="/log-in" >already have one? log in now</a>
             </div>
-        </div>
-    </div>
-</div>
-</body>
-</html>
+{% endblock %}
+

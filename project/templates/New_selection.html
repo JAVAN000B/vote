@@ -6,13 +6,13 @@
 
 {% block admin_nav %}
 <li class="nav-item">
-    <a href="/" class="nav-link">Back</a>
+    <a href="/vote/{{questionid }}" class="nav-link">Back</a>
 </li>
 {% endblock %}
 
 {% block user_nav %}
 <li class="nav-item">
-    <a href="/" class="nav-link">Back</a>
+    <a href="/vote/{{questionid }}" class="nav-link">Back</a>
 </li>
 {% endblock %}
 
@@ -25,6 +25,7 @@
                         <div class="create-description-part">
                         {{ form.description(class="create-description", placeholder="Enter the description") }}
                         </div>
+
                         <hr>
                         <div class="crate-submit-part">
                             <input type="submit" value="submit" class="btn btn-primary" id="submit" >
@@ -35,3 +36,6 @@
         </div>
 {% endblock %}
 
+{% block scripts %}
+
+{% endblock %}
