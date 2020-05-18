@@ -1,5 +1,5 @@
-# Game voting flask project web app
-
+# voting flask project web app
+easy vote
 
 # Purpose of application:
 this project is a rewrite version of the original project.
